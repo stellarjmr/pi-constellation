@@ -12,7 +12,13 @@ import {
 	taskAgentConfig,
 } from "../extensions/harness/config.js";
 import childWeb from "../extensions/harness/child-web.js";
-import harness, { applyMode, buildHarnessPolicy } from "../extensions/harness/index.js";
+import harness, {
+	appendBundledAgents,
+	applyMode,
+	BUNDLED_AGENTS,
+	buildChildSystemPrompt,
+	shouldUseBundledAgents,
+} from "../extensions/harness/index.js";
 import { buildPiArgv, JsonlCollector, resolvePiBinary, runChild } from "../extensions/harness/runner.js";
 
 test("package manifest exposes one installable Pi extension entrypoint", () => {
@@ -21,6 +27,7 @@ test("package manifest exposes one installable Pi extension entrypoint", () => {
 		private?: unknown;
 		license?: unknown;
 		contributors?: unknown;
+		files?: unknown;
 		pi?: { extensions?: unknown };
 	};
 	assert.equal(typeof extension, "function");
@@ -28,6 +35,7 @@ test("package manifest exposes one installable Pi extension entrypoint", () => {
 	assert.equal(manifest.private, undefined);
 	assert.equal(manifest.license, "MIT");
 	assert.deepEqual(manifest.contributors, ["stellarjmr"]);
+	assert.ok(Array.isArray(manifest.files) && manifest.files.includes("AGENTS.md"));
 	assert.deepEqual(manifest.pi?.extensions, ["./index.ts"]);
 });
 
@@ -60,17 +68,59 @@ test("mode and subagent model mappings match the requested Amp-style harness", (
 	assert.equal(taskAgentConfig("ultra").thinking, "max");
 });
 
-test("parent policy is selective, self-contained, and enforces a foreground single writer", () => {
-	const base = buildHarnessPolicy([]);
-	assert.match(base, /Handle simple, localized work directly/);
-	assert.doesNotMatch(base, /Use finder/);
+test("bundled AGENTS.md is documented verbatim and contains the durable harness contract", () => {
+	const file = readFileSync(new URL("../AGENTS.md", import.meta.url), "utf8").trim();
+	const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+	assert.equal(BUNDLED_AGENTS, file);
+	assert.ok(readme.includes(`\`\`\`markdown\n${file}\n\`\`\``));
+	assert.match(file, /main agent owns understanding, implementation, integration, and verification/);
+	assert.match(file, /Keep a single writer/);
+	assert.match(file, /Do not expose credentials/);
+	assert.match(file, /Validate in proportion to risk/);
+});
 
-	const policy = buildHarnessPolicy(["finder", "oracle", "task"]);
-	assert.match(policy, /Use finder for conceptual or multi-module local code discovery/);
-	assert.match(policy, /Use oracle selectively/);
-	assert.match(policy, /foreground single writer/);
-	assert.match(policy, /self-contained goal/);
-	assert.doesNotMatch(policy, /Use librarian/);
+test("bundled AGENTS.md is a fallback for an empty Pi context and composes once", () => {
+	assert.equal(shouldUseBundledAgents(undefined), true);
+	assert.equal(shouldUseBundledAgents([]), true);
+	assert.equal(shouldUseBundledAgents([], true), false);
+
+	const prompt = appendBundledAgents("EARLIER EXTENSION", true);
+	assert.match(prompt, /^EARLIER EXTENSION\n\n## Bundled AGENTS\.md Fallback/);
+	assert.equal(prompt.match(/# Amp-Style Autonomous Coding Rules/g)?.length, 1);
+	assert.equal(appendBundledAgents(prompt, false), prompt);
+});
+
+test("any Pi-discovered instruction context suppresses the bundled fallback", () => {
+	for (const path of [
+		"/home/user/.pi/agent/AGENTS.md",
+		"/workspace/AGENTS.override.md",
+		"/workspace/project/CLAUDE.md",
+		"/custom/instructions.txt",
+		new URL("../AGENTS.md", import.meta.url).pathname,
+	]) {
+		assert.equal(shouldUseBundledAgents([{ path, content: "USER RULES" }]), false, path);
+	}
+});
+
+test("child prompts use the parent instruction snapshot without mixing fallback context", () => {
+	const fallback = buildChildSystemPrompt("CHILD", [], true);
+	assert.equal(fallback.match(/# Amp-Style Autonomous Coding Rules/g)?.length, 1);
+	assert.doesNotMatch(fallback, /<project_context>/);
+
+	const custom = buildChildSystemPrompt(
+		"CHILD",
+		[
+			{ path: "/global/AGENTS.md", content: "GLOBAL RULES" },
+			{ path: "/workspace/AGENTS.md", content: "PROJECT RULES" },
+		],
+		false,
+	);
+	assert.match(custom, /^CHILD\n\n<project_context>/);
+	assert.match(custom, /<project_instructions path="\/global\/AGENTS\.md">\nGLOBAL RULES/);
+	assert.match(custom, /<project_instructions path="\/workspace\/AGENTS\.md">\nPROJECT RULES/);
+	assert.doesNotMatch(custom, /Bundled AGENTS\.md Fallback/);
+
+	assert.equal(buildChildSystemPrompt("CHILD", [], false), "CHILD");
 });
 
 test("restoring an already-correct mode does not append native session transitions", async () => {
@@ -168,6 +218,7 @@ test("Pi child argv is fresh, isolated, and loads only the owned librarian exten
 	assert.deepEqual(argv.slice(0, 4), ["--mode", "json", "-p", "--no-session"]);
 	assert.ok(argv.includes("--no-extensions"));
 	assert.ok(argv.includes("--no-skills"));
+	assert.ok(argv.includes("--no-context-files"));
 	assert.deepEqual(
 		argv.slice(argv.indexOf("--append-system-prompt"), argv.indexOf("--append-system-prompt") + 2),
 		["--append-system-prompt", "/tmp/system.txt"],
@@ -290,7 +341,7 @@ test("parent and librarian child register only their intended tools", () => {
 	assert.deepEqual(childNames, ["web_search", "read_web_page"]);
 });
 
-test("input preflight repairs mode drift before provider validation and injects policy once", async () => {
+test("input preflight repairs mode drift and applies instructions only as a fallback", async () => {
 	type BeforeStart = (event: any, ctx: any) => Promise<{ systemPrompt: string }>;
 	type Input = (event: any, ctx: any) => Promise<{ action: "continue" | "handled" }>;
 	let beforeStart: BeforeStart | undefined;
@@ -335,17 +386,26 @@ test("input preflight repairs mode drift before provider validation and injects 
 	const result = await beforeStart(
 		{
 			systemPrompt: "BASE",
-			systemPromptOptions: { selectedTools: ["finder", "task"] },
+			systemPromptOptions: { contextFiles: [] },
 		},
 		ctx,
 	);
 	assert.equal(modelChanges, 1);
 	assert.deepEqual(thinkingChanges, ["xhigh"]);
 	assert.equal(customEntries, 0);
-	assert.equal(result.systemPrompt.match(/## Amp-Style Harness Policy/g)?.length, 1);
-	assert.match(result.systemPrompt, /^BASE\n\n## Amp-Style Harness Policy/);
-	assert.match(result.systemPrompt, /Use finder/);
-	assert.doesNotMatch(result.systemPrompt, /Use oracle/);
+	assert.equal(result.systemPrompt.match(/## Bundled AGENTS\.md Fallback/g)?.length, 1);
+	assert.match(result.systemPrompt, /^BASE\n\n## Bundled AGENTS\.md Fallback/);
+
+	const existing = await beforeStart(
+		{
+			systemPrompt: "BASE\n\nUSER RULES",
+			systemPromptOptions: {
+				contextFiles: [{ path: "/workspace/AGENTS.md", content: "USER RULES" }],
+			},
+		},
+		ctx,
+	);
+	assert.equal(existing.systemPrompt, "BASE\n\nUSER RULES");
 });
 
 test("input preflight handles failed mode repair before a provider turn", async () => {

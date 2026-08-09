@@ -44,6 +44,58 @@ pi install /absolute/path/to/pi-amp-harness
 
 Pi reads the `pi.extensions` manifest and loads `index.ts` directly. No build step or third-party Pi extension is required.
 
+## Agent instruction fallback
+
+The package includes a fallback [`AGENTS.md`](AGENTS.md), but installing the package never copies, creates, replaces, or edits an instruction file in the user's Pi directory or project.
+
+On every agent turn, the extension inspects the context files that Pi already discovered:
+
+1. If Pi loaded any global, ancestor, project, or custom instruction file, the bundled fallback is not injected. The user's normal Pi instructions apply by themselves.
+2. If Pi loaded no instruction file, the extension appends the bundled `AGENTS.md` to the main agent's system prompt and to isolated subagent prompts.
+3. After `/reload`, a session switch, or a workspace change, Pi rebuilds its context and the extension evaluates the rule again on the next turn.
+
+Pi 0.84.1 recognizes the first readable file in each applicable directory in this order: `AGENTS.override.md`, `AGENTS.md`, `AGENTS.MD`, `CLAUDE.md`, then `CLAUDE.MD`. It loads the global Pi directory first, followed by project ancestors from outermost to innermost. Any resulting context file suppresses the package fallback; the extension does not reimplement or weaken Pi's native precedence rules.
+
+An installed package's own `AGENTS.md` is not part of Pi's automatic project discovery. The extension reads its packaged copy through `import.meta.url`, and `package.json` includes the file in published archives. Running Pi from this repository is also safe: Pi discovers the repository file natively, so the extension does not inject a duplicate.
+
+Each isolated subagent receives the main turn's instruction snapshot. Child Pi processes run with `--no-context-files`, so they cannot independently rediscover a different global or project file. This also preserves custom context supplied through Pi's SDK and keeps the opt-out behavior consistent between parent and child agents.
+
+`--no-context-files` makes Pi report an empty context list, so the fallback remains active. Use `--no-harness-agents` as well when no native or bundled instructions should be applied:
+
+```sh
+pi --no-context-files --no-harness-agents
+```
+
+The complete bundled fallback is:
+
+```markdown
+# Amp-Style Autonomous Coding Rules
+
+## Ownership and Execution
+
+- The main agent owns understanding, implementation, integration, and verification. Work toward the requested outcome unless the user explicitly asks only for research, review, brainstorming, or a plan.
+- Read enough relevant code and evidence to avoid guessing, then make the smallest correct change that follows the project's existing patterns.
+- Keep unrelated worktree changes intact. Never discard, overwrite, or reformat work outside the requested scope.
+
+## Tools and Delegation
+
+- Handle simple and well-defined work directly. Delegate only when an isolated context materially improves code discovery, external research, difficult judgment, independent review, or a known substantial implementation.
+- Use direct local tools for exact paths, symbols, and strings; use Finder for conceptual or multi-module local code discovery and Librarian for external repositories or dependency internals.
+- Use Oracle selectively for difficult decisions, subtle debugging, architecture tradeoffs, or high-impact review. Use Reviewer when an independent intent-first review materially reduces risk.
+- Give every subagent a self-contained goal, relevant paths and evidence, constraints, non-goals, and the required validation or output shape. The parent must inspect and integrate the result.
+- Keep a single writer. Task is a foreground implementation agent, not a substitute for understanding the change, and must not run concurrently with another writer in the same workspace.
+
+## Safety and Verification
+
+- Do not expose credentials or other secrets. Ask before destructive or shared actions, including discarding work, deleting user data, committing, pushing, publishing, or changing shared infrastructure.
+- Validate in proportion to risk with the narrowest useful test, typecheck, build, formatter, or manual check. Report failures and anything that remains unverified honestly.
+- Follow higher-priority user instructions and every applicable project or scoped instruction file. When rules conflict, the more specific or higher-priority instruction wins.
+
+## Communication
+
+- Keep progress updates and final reports concise and evidence-based. State what changed, why it is correct, what was checked, and any remaining blocker or uncertainty.
+```
+
 ## Modes
 
 | Mode | Main agent | Oracle |

@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import type {
 	AgentToolUpdateCallback,
+	BuildSystemPromptOptions,
 	ExtensionAPI,
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
@@ -49,32 +51,40 @@ const PROMPTS = {
 	].join(" "),
 } as const;
 
-export function buildHarnessPolicy(selectedTools: readonly string[] = []): string {
-	const active = new Set(selectedTools);
-	const lines = [
-		"Work toward the requested outcome rather than stopping at a proposal unless the user asked for research, review, or planning only.",
-		"Inspect enough local evidence to avoid guessing, prefer the smallest correct change, preserve unrelated worktree changes, and validate proportionally.",
-		"Handle simple, localized work directly. Delegate only when an isolated context materially improves retrieval, judgment, review, or a known multi-step implementation.",
-		"Every subagent starts fresh and returns only its final summary. Give it a self-contained goal, relevant paths and evidence, constraints, and the validation or output shape required; then inspect and integrate its result yourself.",
-	];
+export const BUNDLED_AGENTS = readFileSync(new URL("../../AGENTS.md", import.meta.url), "utf8").trim();
 
-	if (active.has("finder")) {
-		lines.push("Use finder for conceptual or multi-module local code discovery; use direct local search for exact paths, symbols, or strings.");
-	}
-	if (active.has("librarian")) {
-		lines.push("Use librarian for external repositories and dependency internals, never for first-party local code that can be read directly.");
-	}
-	if (active.has("oracle")) {
-		lines.push("Use oracle selectively for hard judgment, subtle debugging, architecture, or high-impact review; its advice is read-only and must be checked against local evidence.");
-	}
-	if (active.has("reviewer")) {
-		lines.push("Use reviewer after non-trivial changes when an independent intent-first review would materially reduce risk, not for routine edits.");
-	}
-	if (active.has("task")) {
-		lines.push("Use task only after the implementation path is understood and the work is substantial enough to benefit from a fresh executor. It is a foreground single writer; inspect its diff and run the combined validation afterward.");
-	}
+export function shouldUseBundledAgents(
+	contextFiles: BuildSystemPromptOptions["contextFiles"],
+	disabled = false,
+): boolean {
+	return !disabled && (contextFiles?.length ?? 0) === 0;
+}
 
-	return `## Amp-Style Harness Policy\n\n${lines.map((line) => `- ${line}`).join("\n")}`;
+export function appendBundledAgents(systemPrompt: string, enabled: boolean): string {
+	if (!enabled) return systemPrompt;
+	return [
+		systemPrompt,
+		"## Bundled AGENTS.md Fallback",
+		"Pi Amp-Style Harness is applying its bundled instructions because Pi loaded no user or project instruction file.",
+		BUNDLED_AGENTS,
+	].join("\n\n");
+}
+
+export function buildChildSystemPrompt(
+	systemPrompt: string,
+	contextFiles: BuildSystemPromptOptions["contextFiles"],
+	useBundledAgents: boolean,
+): string {
+	let prompt = systemPrompt;
+	if (contextFiles?.length) {
+		prompt += "\n\n<project_context>\n\n";
+		prompt += "Project-specific instructions and guidelines:\n\n";
+		for (const { path, content } of contextFiles) {
+			prompt += `<project_instructions path="${path}">\n${content}\n</project_instructions>\n\n`;
+		}
+		prompt += "</project_context>\n";
+	}
+	return appendBundledAgents(prompt, useBundledAgents);
 }
 
 export async function applyMode(
@@ -164,6 +174,15 @@ export default function harness(pi: ExtensionAPI): void {
 		type: "string",
 		description: "Harness mode: high or ultra",
 	});
+	pi.registerFlag("no-harness-agents", {
+		type: "boolean",
+		description: "Disable the bundled AGENTS.md fallback",
+	});
+
+	let useBundledAgents = false;
+	let contextFiles: NonNullable<BuildSystemPromptOptions["contextFiles"]> = [];
+	const childSystemPrompt = (prompt: string): string =>
+		buildChildSystemPrompt(prompt, contextFiles, useBundledAgents);
 
 	const restore = async (_event: unknown, ctx: ExtensionContext): Promise<void> => {
 		const flag = pi.getFlag("harness-mode");
@@ -205,8 +224,12 @@ export default function harness(pi: ExtensionAPI): void {
 			ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
 			ctx.shutdown();
 		}
-		const policy = buildHarnessPolicy(event.systemPromptOptions.selectedTools ?? []);
-		return { systemPrompt: `${event.systemPrompt}\n\n${policy}` };
+		contextFiles = (event.systemPromptOptions.contextFiles ?? []).map(({ path, content }) => ({ path, content }));
+		useBundledAgents = shouldUseBundledAgents(
+			contextFiles,
+			pi.getFlag("no-harness-agents") === true,
+		);
+		return { systemPrompt: appendBundledAgents(event.systemPrompt, useBundledAgents) };
 	});
 
 	pi.registerCommand("mode", {
@@ -243,7 +266,7 @@ export default function harness(pi: ExtensionAPI): void {
 			task: Type.String({ minLength: 1, description: "Focused decision, debugging, planning, or review task with all necessary context" }),
 		}),
 		execute(_id, { task }, signal, onUpdate, ctx) {
-			return runAgentTool("oracle", AGENTS.oracle, task, PROMPTS.oracle, signal, onUpdate, ctx);
+			return runAgentTool("oracle", AGENTS.oracle, task, childSystemPrompt(PROMPTS.oracle), signal, onUpdate, ctx);
 		},
 	});
 
@@ -261,7 +284,7 @@ export default function harness(pi: ExtensionAPI): void {
 			query: Type.String({ minLength: 1, description: "Precise local code-discovery objective and evidence required" }),
 		}),
 		execute(_id, { query }, signal, onUpdate, ctx) {
-			return runAgentTool("finder", AGENTS.finder, query, PROMPTS.finder, signal, onUpdate, ctx);
+			return runAgentTool("finder", AGENTS.finder, query, childSystemPrompt(PROMPTS.finder), signal, onUpdate, ctx);
 		},
 	});
 
@@ -279,7 +302,7 @@ export default function harness(pi: ExtensionAPI): void {
 			task: Type.String({ minLength: 1, description: "Intent, relevant code or plan, risks to inspect, and desired review output" }),
 		}),
 		execute(_id, { task }, signal, onUpdate, ctx) {
-			return runAgentTool("reviewer", AGENTS.reviewer, task, PROMPTS.reviewer, signal, onUpdate, ctx);
+			return runAgentTool("reviewer", AGENTS.reviewer, task, childSystemPrompt(PROMPTS.reviewer), signal, onUpdate, ctx);
 		},
 	});
 
@@ -299,7 +322,7 @@ export default function harness(pi: ExtensionAPI): void {
 		}),
 		execute(_id, { query, context }, signal, onUpdate, ctx) {
 			const task = context ? `${query}\n\nContext:\n${context}` : query;
-			return runAgentTool("librarian", AGENTS.librarian, task, PROMPTS.librarian, signal, onUpdate, ctx);
+			return runAgentTool("librarian", AGENTS.librarian, task, childSystemPrompt(PROMPTS.librarian), signal, onUpdate, ctx);
 		},
 	});
 
@@ -319,7 +342,7 @@ export default function harness(pi: ExtensionAPI): void {
 		}),
 		execute(_id, { task }, signal, onUpdate, ctx) {
 			const mode = resolveHarnessMode(pi.getFlag("harness-mode"), ctx.sessionManager.getBranch());
-			return runAgentTool("task", taskAgentConfig(mode), task, PROMPTS.task, signal, onUpdate, ctx);
+			return runAgentTool("task", taskAgentConfig(mode), task, childSystemPrompt(PROMPTS.task), signal, onUpdate, ctx);
 		},
 	});
 

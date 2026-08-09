@@ -1,6 +1,6 @@
 {
   "name": "pi-amp-harness",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An Amp-inspired two-mode agent harness for Pi with isolated specialist subagents.",
   "type": "module",
   "license": "MIT",
@@ -21,6 +21,7 @@
     "subagents"
   ],
   "files": [
+    "AGENTS.md",
     "index.ts",
     "extensions/**/*.ts",
     "README.md",

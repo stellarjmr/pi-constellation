@@ -70,6 +70,7 @@ export function buildPiArgv(config: AgentConfig, promptFile: string, childWeb?: 
 		config.tools,
 		"--append-system-prompt",
 		promptFile,
+		"--no-context-files",
 		"--no-extensions",
 		"--no-skills",
 		"--no-prompt-templates",
