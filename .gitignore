@@ -1,0 +1,12 @@
+auth.json
+trust.json
+models-store.json
+sessions/
+.pi/
+node_modules/
+coverage/
+dist/
+.tmp/
+tmp/
+*.log
+.DS_Store
