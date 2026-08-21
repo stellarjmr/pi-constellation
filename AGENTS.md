@@ -1,4 +1,4 @@
-# Amp-Style Autonomous Coding Rules
+# Constellation Autonomous Coding Rules
 
 ## Ownership and Execution
 

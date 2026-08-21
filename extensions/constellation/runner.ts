@@ -46,7 +46,7 @@ function notifyProgress(
 }
 
 export function resolvePiBinary(env: NodeJS.ProcessEnv = process.env): string {
-	if (env.PI_HARNESS_PI_BINARY?.trim()) return env.PI_HARNESS_PI_BINARY.trim();
+	if (env.PI_CONSTELLATION_PI_BINARY?.trim()) return env.PI_CONSTELLATION_PI_BINARY.trim();
 	const candidate = process.platform === "win32" ? "pi.cmd" : "pi";
 	for (const dir of (env.PATH ?? "").split(delimiter)) {
 		if (!dir) continue;
@@ -205,7 +205,7 @@ export async function runChild(
 	if (!task.trim()) throw new Error("child task must not be empty");
 	notifyProgress(onProgress, { phase: "starting", completedTools: 0 });
 
-	const dir = await mkdtemp(join(tmpdir(), "pi-harness-"));
+	const dir = await mkdtemp(join(tmpdir(), "pi-constellation-"));
 	try {
 		const promptFile = join(dir, "system.txt");
 		const taskFile = join(dir, "task.md");

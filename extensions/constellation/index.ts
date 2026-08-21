@@ -8,12 +8,12 @@ import type {
 import { Type } from "typebox";
 import {
 	AGENTS,
-	isHarnessMode,
+	isConstellationMode,
 	MODE_STATE_ENTRY,
 	MODES,
-	resolveHarnessMode,
+	resolveConstellationMode,
 	taskAgentConfig,
-	type HarnessMode,
+	type ConstellationMode,
 } from "./config.js";
 import { runChild, type AgentConfig, type ChildProgress } from "./runner.js";
 import { registerWebTools } from "./web.js";
@@ -65,7 +65,7 @@ export function appendBundledAgents(systemPrompt: string, enabled: boolean): str
 	return [
 		systemPrompt,
 		"## Bundled AGENTS.md Fallback",
-		"Pi Amp-Style Harness is applying its bundled instructions because Pi loaded no user or project instruction file.",
+		"Constellation for Pi is applying its bundled instructions because Pi loaded no user or project instruction file.",
 		BUNDLED_AGENTS,
 	].join("\n\n");
 }
@@ -90,19 +90,19 @@ export function buildChildSystemPrompt(
 export async function applyMode(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
-	name: HarnessMode,
+	name: ConstellationMode,
 	persist = true,
 ): Promise<void> {
 	const config = MODES[name];
 	const model = ctx.modelRegistry.find(config.provider, config.model);
 	if (!model) {
-		throw new Error(`Harness mode ${name}: model ${config.provider}/${config.model} is unavailable`);
+		throw new Error(`Constellation mode ${name}: model ${config.provider}/${config.model} is unavailable`);
 	}
 
 	const modelChanged = ctx.model?.provider !== config.provider || ctx.model.id !== config.model;
 	if (modelChanged && !(await pi.setModel(model))) {
 		throw new Error(
-			`Harness mode ${name}: authentication unavailable for ${config.provider}; use /login ${config.provider}`,
+			`Constellation mode ${name}: authentication unavailable for ${config.provider}; use /login ${config.provider}`,
 		);
 	}
 	if (modelChanged || ctx.thinkingLevel !== config.thinking) pi.setThinkingLevel(config.thinking);
@@ -169,12 +169,12 @@ async function runAgentTool(
 	}
 }
 
-export default function harness(pi: ExtensionAPI): void {
-	pi.registerFlag("harness-mode", {
+export default function constellation(pi: ExtensionAPI): void {
+	pi.registerFlag("constellation-mode", {
 		type: "string",
-		description: "Harness mode: high or ultra",
+		description: "Constellation mode: high or ultra",
 	});
-	pi.registerFlag("no-harness-agents", {
+	pi.registerFlag("no-constellation-agents", {
 		type: "boolean",
 		description: "Disable the bundled AGENTS.md fallback",
 	});
@@ -185,18 +185,18 @@ export default function harness(pi: ExtensionAPI): void {
 		buildChildSystemPrompt(prompt, contextFiles, useBundledAgents);
 
 	const restore = async (_event: unknown, ctx: ExtensionContext): Promise<void> => {
-		const flag = pi.getFlag("harness-mode");
-		const flagMode = isHarnessMode(flag) ? flag : undefined;
+		const flag = pi.getFlag("constellation-mode");
+		const flagMode = isConstellationMode(flag) ? flag : undefined;
 		if (flag !== undefined && !flagMode) {
-			ctx.ui.notify(`Invalid --harness-mode ${JSON.stringify(flag)}; expected high or ultra`, "error");
+			ctx.ui.notify(`Invalid --constellation-mode ${JSON.stringify(flag)}; expected high or ultra`, "error");
 			ctx.shutdown();
 			return;
 		}
 
-		const mode = resolveHarnessMode(flagMode, ctx.sessionManager.getBranch());
+		const mode = resolveConstellationMode(flagMode, ctx.sessionManager.getBranch());
 		try {
 			await applyMode(pi, ctx, mode, false);
-			ctx.ui.setStatus("harness-mode", ctx.ui.theme.fg("accent", `mode:${mode}`));
+			ctx.ui.setStatus("constellation-mode", ctx.ui.theme.fg("accent", `mode:${mode}`));
 		} catch (error) {
 			ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
 			ctx.shutdown();
@@ -207,7 +207,7 @@ export default function harness(pi: ExtensionAPI): void {
 	pi.on("session_tree", restore);
 	pi.on("input", async (event, ctx) => {
 		if (event.streamingBehavior) return { action: "continue" as const };
-		const mode = resolveHarnessMode(pi.getFlag("harness-mode"), ctx.sessionManager.getBranch());
+		const mode = resolveConstellationMode(pi.getFlag("constellation-mode"), ctx.sessionManager.getBranch());
 		try {
 			await applyMode(pi, ctx, mode, false);
 			return { action: "continue" as const };
@@ -217,7 +217,7 @@ export default function harness(pi: ExtensionAPI): void {
 		}
 	});
 	pi.on("before_agent_start", async (event, ctx) => {
-		const mode = resolveHarnessMode(pi.getFlag("harness-mode"), ctx.sessionManager.getBranch());
+		const mode = resolveConstellationMode(pi.getFlag("constellation-mode"), ctx.sessionManager.getBranch());
 		try {
 			await applyMode(pi, ctx, mode, false);
 		} catch (error) {
@@ -227,25 +227,25 @@ export default function harness(pi: ExtensionAPI): void {
 		contextFiles = (event.systemPromptOptions.contextFiles ?? []).map(({ path, content }) => ({ path, content }));
 		useBundledAgents = shouldUseBundledAgents(
 			contextFiles,
-			pi.getFlag("no-harness-agents") === true,
+			pi.getFlag("no-constellation-agents") === true,
 		);
 		return { systemPrompt: appendBundledAgents(event.systemPrompt, useBundledAgents) };
 	});
 
 	pi.registerCommand("mode", {
-		description: "Select high or ultra harness mode",
+		description: "Select high or ultra Constellation mode",
 		handler: async (args, ctx) => {
 			let requested: unknown = args.trim();
-			if (!requested) requested = await ctx.ui.select("Harness mode", ["high", "ultra"]);
-			if (!isHarnessMode(requested)) {
+			if (!requested) requested = await ctx.ui.select("Constellation mode", ["high", "ultra"]);
+			if (!isConstellationMode(requested)) {
 				if (requested !== undefined) ctx.ui.notify("Usage: /mode high|ultra", "error");
 				return;
 			}
 
 			try {
 				await applyMode(pi, ctx, requested);
-				ctx.ui.setStatus("harness-mode", ctx.ui.theme.fg("accent", `mode:${requested}`));
-				ctx.ui.notify(`Harness mode: ${requested}`, "info");
+				ctx.ui.setStatus("constellation-mode", ctx.ui.theme.fg("accent", `mode:${requested}`));
+				ctx.ui.notify(`Constellation mode: ${requested}`, "info");
 			} catch (error) {
 				ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
 			}
@@ -341,7 +341,7 @@ export default function harness(pi: ExtensionAPI): void {
 			task: Type.String({ minLength: 1, description: "Known implementation outcome, scope, constraints, relevant paths, and validation" }),
 		}),
 		execute(_id, { task }, signal, onUpdate, ctx) {
-			const mode = resolveHarnessMode(pi.getFlag("harness-mode"), ctx.sessionManager.getBranch());
+			const mode = resolveConstellationMode(pi.getFlag("constellation-mode"), ctx.sessionManager.getBranch());
 			return runAgentTool("task", taskAgentConfig(mode), task, childSystemPrompt(PROMPTS.task), signal, onUpdate, ctx);
 		},
 	});

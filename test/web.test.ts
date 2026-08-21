@@ -6,7 +6,7 @@ import {
 	isForbiddenAddress,
 	readWebPage,
 	webSearch,
-} from "../extensions/harness/web.js";
+} from "../extensions/constellation/web.js";
 
 const PUBLIC_ADDRESS = { address: "93.184.216.34", family: 4 };
 const publicDns = async () => [PUBLIC_ADDRESS];

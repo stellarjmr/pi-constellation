@@ -2,29 +2,29 @@ export const MODES = {
 	high: { provider: "openai-codex", model: "gpt-5.6-sol", thinking: "xhigh" },
 	ultra: { provider: "openai-codex", model: "gpt-5.6-sol", thinking: "max" },
 } as const;
-export type HarnessMode = keyof typeof MODES;
+export type ConstellationMode = keyof typeof MODES;
 
-export const MODE_STATE_ENTRY = "amp-harness-mode";
+export const MODE_STATE_ENTRY = "pi-constellation.mode";
 
-export function isHarnessMode(value: unknown): value is HarnessMode {
+export function isConstellationMode(value: unknown): value is ConstellationMode {
 	return value === "high" || value === "ultra";
 }
 
-export function resolveHarnessMode(
+export function resolveConstellationMode(
 	flag: unknown,
 	entries: ReadonlyArray<{ type?: unknown; customType?: unknown; data?: unknown }>,
-): HarnessMode {
-	if (isHarnessMode(flag)) return flag;
-	let saved: HarnessMode | undefined;
+): ConstellationMode {
+	if (isConstellationMode(flag)) return flag;
+	let saved: ConstellationMode | undefined;
 	for (const entry of entries) {
 		if (entry.type !== "custom" || entry.customType !== MODE_STATE_ENTRY) continue;
 		const mode = (entry.data as { mode?: unknown } | undefined)?.mode;
-		if (isHarnessMode(mode)) saved = mode;
+		if (isConstellationMode(mode)) saved = mode;
 	}
 	return saved ?? "high";
 }
 
-export function taskAgentConfig(mode: HarnessMode) {
+export function taskAgentConfig(mode: ConstellationMode) {
 	return {
 		...MODES[mode],
 		tools: "read,bash,edit,write,grep,find,ls",

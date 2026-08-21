@@ -1,16 +1,16 @@
 {
-  "name": "pi-amp-harness",
-  "version": "0.1.1",
-  "description": "An Amp-inspired two-mode agent harness for Pi with isolated specialist subagents.",
+  "name": "pi-constellation",
+  "version": "0.2.0",
+  "description": "A high-performance, two-mode multi-agent harness for Pi.",
   "type": "module",
   "license": "MIT",
   "author": "stellarjmr",
   "contributors": ["stellarjmr"],
-  "homepage": "https://github.com/stellarjmr/pi-amp-harness#readme",
-  "bugs": "https://github.com/stellarjmr/pi-amp-harness/issues",
+  "homepage": "https://github.com/stellarjmr/pi-constellation#readme",
+  "bugs": "https://github.com/stellarjmr/pi-constellation/issues",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/stellarjmr/pi-amp-harness.git"
+    "url": "git+https://github.com/stellarjmr/pi-constellation.git"
   },
   "keywords": [
     "pi-package",
@@ -18,6 +18,7 @@
     "pi-coding-agent",
     "extension",
     "agent-harness",
+    "constellation",
     "subagents"
   ],
   "files": [

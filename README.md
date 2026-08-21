@@ -1,8 +1,8 @@
-# Pi Amp-Style Harness
+# Constellation — Agent Harness for Pi
 
-An installable, Amp-inspired agent harness for [Pi](https://github.com/earendil-works/pi). It provides two capability modes, isolated specialist subagents, bounded progress reporting, web research, and a TUI statusline that displays the harness mode instead of raw thinking effort.
+A high-performance, two-mode multi-agent harness for [Pi](https://github.com/earendil-works/pi). Constellation provides isolated specialist subagents, bounded progress reporting, web research, and a TUI statusline that displays the active capability mode instead of raw thinking effort.
 
-This is an independent implementation built from Pi's public Extension API, the [Amp manual](https://ampcode.com/manual), the current [Amp modes page](https://ampcode.com/modes), and relevant MIT-licensed public projects. Amp's core harness is not public, and this project does not claim source compatibility with Amp.
+Constellation is an independent implementation built with Pi's public Extension API and relevant MIT-licensed public projects. It has no runtime dependency on third-party Pi extensions.
 
 ## Requirements
 
@@ -27,19 +27,19 @@ Then run this command inside Pi:
 Install directly from GitHub:
 
 ```sh
-pi install git:github.com/stellarjmr/pi-amp-harness
+pi install git:github.com/stellarjmr/pi-constellation
 ```
 
 For project-local installation:
 
 ```sh
-pi install -l git:github.com/stellarjmr/pi-amp-harness
+pi install -l git:github.com/stellarjmr/pi-constellation
 ```
 
 During development, install the local checkout:
 
 ```sh
-pi install /absolute/path/to/pi-amp-harness
+pi install /absolute/path/to/pi-constellation
 ```
 
 Pi reads the `pi.extensions` manifest and loads `index.ts` directly. No build step or third-party Pi extension is required.
@@ -60,16 +60,16 @@ An installed package's own `AGENTS.md` is not part of Pi's automatic project dis
 
 Each isolated subagent receives the main turn's instruction snapshot. Child Pi processes run with `--no-context-files`, so they cannot independently rediscover a different global or project file. This also preserves custom context supplied through Pi's SDK and keeps the opt-out behavior consistent between parent and child agents.
 
-`--no-context-files` makes Pi report an empty context list, so the fallback remains active. Use `--no-harness-agents` as well when no native or bundled instructions should be applied:
+`--no-context-files` makes Pi report an empty context list, so the fallback remains active. Use `--no-constellation-agents` as well when no native or bundled instructions should be applied:
 
 ```sh
-pi --no-context-files --no-harness-agents
+pi --no-context-files --no-constellation-agents
 ```
 
 The complete bundled fallback is:
 
 ```markdown
-# Amp-Style Autonomous Coding Rules
+# Constellation Autonomous Coding Rules
 
 ## Ownership and Execution
 
@@ -103,9 +103,9 @@ The complete bundled fallback is:
 | `high` | `openai-codex/gpt-5.6-sol:xhigh` | `openai-codex/gpt-5.6-sol:high` |
 | `ultra` | `openai-codex/gpt-5.6-sol:max` | `openai-codex/gpt-5.6-sol:high` |
 
-Select a mode with `/mode`, `/mode high`, `/mode ultra`, or `--harness-mode high|ultra`. The default is `high`. The selection is stored in the Pi session and restored when the session or branch changes.
+Select a mode with `/mode`, `/mode high`, `/mode ultra`, or `--constellation-mode high|ultra`. The default is `high`. The selection is stored in the Pi session and restored when the session or branch changes.
 
-The harness checks the selected preset before provider validation and again before each agent turn. Missing models and failed model switches stop explicitly instead of silently falling back to another model.
+Constellation checks the selected preset before provider validation and again before each agent turn. Missing models and failed model switches stop explicitly instead of silently falling back to another model.
 
 ## Tools
 

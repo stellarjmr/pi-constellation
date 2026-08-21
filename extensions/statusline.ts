@@ -4,10 +4,10 @@ import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { CustomEditor, type ExtensionAPI, type ExtensionContext, InteractiveMode, type KeybindingsManager, type Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, type EditorTheme, type TUI } from "@earendil-works/pi-tui";
-import { resolveHarnessMode, type HarnessMode } from "./harness/config.js";
+import { resolveConstellationMode, type ConstellationMode } from "./constellation/config.js";
 
 // Suppress the framework's built-in "Thinking level: xxx" status message,
-// since the custom editor border shows the harness mode instead.
+// since the custom editor border shows the Constellation mode instead.
 const SUPPRESS_STATUS_PATTERNS: RegExp[] = [/^Thinking level: /];
 const interactiveProto = InteractiveMode.prototype as unknown as { showStatus: (message: string) => void };
 if (!(interactiveProto as { __statuslineSuppressPatched?: boolean }).__statuslineSuppressPatched) {
@@ -114,7 +114,7 @@ function formatStartupResources(pi: ExtensionAPI, ctx: ExtensionContext): string
 	return lines;
 }
 
-function colorForHarnessMode(theme: Theme, mode: HarnessMode): string {
+function colorForConstellationMode(theme: Theme, mode: ConstellationMode): string {
 	return mode === "ultra" ? theme.fg("thinkingMax", mode) : theme.fg("thinkingHigh", mode);
 }
 
@@ -203,12 +203,12 @@ class LimitEditor extends CustomEditor {
 		const rendered = super.render(innerWidth);
 		if (rendered.length < 2) return rendered;
 
-		const mode = resolveHarnessMode(this.pi.getFlag("harness-mode"), this.ctx.sessionManager.getBranch());
+		const mode = resolveConstellationMode(this.pi.getFlag("constellation-mode"), this.ctx.sessionManager.getBranch());
 		const borderJoin = this.uiTheme.fg("borderAccent", " ─ ");
 		const borderEdgeLeft = this.uiTheme.fg("borderAccent", "─ ");
 		const borderEdgeRight = this.uiTheme.fg("borderAccent", " ──");
 		const topLeft = `${borderEdgeLeft}${this.uiTheme.fg("borderAccent", " ")}`;
-		const topRight = ` ${getContextLeftPercent(this.ctx)}${borderJoin}${colorForHarnessMode(this.uiTheme, mode)}${borderEdgeRight}`;
+		const topRight = ` ${getContextLeftPercent(this.ctx)}${borderJoin}${colorForConstellationMode(this.uiTheme, mode)}${borderEdgeRight}`;
 		const bottomLeft =
 			borderEdgeLeft +
 			this.uiTheme.fg("warning", formatLimitCompact("5h", this.statusState.codeLimits.session, this.statusState.codeLimits)) +
@@ -279,9 +279,9 @@ function renderStatusline(
 	codeLimits: CodeLimCache,
 ): string {
 	const model = ctx.model?.id || "no-model";
-	const mode = resolveHarnessMode(pi.getFlag("harness-mode"), ctx.sessionManager.getBranch());
+	const mode = resolveConstellationMode(pi.getFlag("constellation-mode"), ctx.sessionManager.getBranch());
 	const parts = [
-		`${theme.fg("accent", model)} ${colorForHarnessMode(theme, mode)}`,
+		`${theme.fg("accent", model)} ${colorForConstellationMode(theme, mode)}`,
 		theme.fg("borderAccent", formatContextLeft(ctx)),
 		theme.fg("warning", formatLimit("5h", codeLimits.session, codeLimits)),
 		theme.fg("mdListBullet", formatLimit("Weekly", codeLimits.weekly, codeLimits)),

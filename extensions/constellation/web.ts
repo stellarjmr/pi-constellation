@@ -208,7 +208,7 @@ async function requestPinned(
 				method: "GET",
 				headers: {
 					Accept: "text/html,application/xhtml+xml,text/plain,application/json,text/markdown;q=0.9,*/*;q=0.1",
-					"User-Agent": "pi-amp-harness/1.0",
+					"User-Agent": "pi-constellation/0.2",
 				},
 				lookup: createPinnedLookup(addresses),
 				signal,
@@ -571,7 +571,7 @@ export async function webSearch(
 	headers.set("Accept", "text/event-stream");
 	headers.set("Content-Type", "application/json");
 	headers.set("OpenAI-Beta", "responses=experimental");
-	headers.set("User-Agent", "pi-amp-harness/1.0");
+	headers.set("User-Agent", "pi-constellation/0.2");
 	if (auth.kind === "codex") {
 		headers.set("originator", "pi");
 		headers.set("chatgpt-account-id", auth.accountId);
@@ -660,7 +660,7 @@ export function registerWebTools(pi: ExtensionAPI): void {
 			url: Type.String(),
 			objective: Type.Optional(Type.String({ description: "Why this page is being read" })),
 			full_content: Type.Optional(
-				Type.Boolean({ description: "Accepted for Amp-style compatibility; output is always bounded full content" }),
+				Type.Boolean({ description: "Accepted for caller compatibility; output is always bounded full content" }),
 			),
 		}),
 		async execute(_id, parameters, signal) {

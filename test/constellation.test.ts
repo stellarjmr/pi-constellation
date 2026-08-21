@@ -8,18 +8,18 @@ import {
 	AGENTS,
 	MODE_STATE_ENTRY,
 	MODES,
-	resolveHarnessMode,
+	resolveConstellationMode,
 	taskAgentConfig,
-} from "../extensions/harness/config.js";
-import childWeb from "../extensions/harness/child-web.js";
-import harness, {
+} from "../extensions/constellation/config.js";
+import childWeb from "../extensions/constellation/child-web.js";
+import constellation, {
 	appendBundledAgents,
 	applyMode,
 	BUNDLED_AGENTS,
 	buildChildSystemPrompt,
 	shouldUseBundledAgents,
-} from "../extensions/harness/index.js";
-import { buildPiArgv, JsonlCollector, resolvePiBinary, runChild } from "../extensions/harness/runner.js";
+} from "../extensions/constellation/index.js";
+import { buildPiArgv, JsonlCollector, resolvePiBinary, runChild } from "../extensions/constellation/runner.js";
 
 test("package manifest exposes one installable Pi extension entrypoint", () => {
 	const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
@@ -31,7 +31,7 @@ test("package manifest exposes one installable Pi extension entrypoint", () => {
 		pi?: { extensions?: unknown };
 	};
 	assert.equal(typeof extension, "function");
-	assert.equal(manifest.name, "pi-amp-harness");
+	assert.equal(manifest.name, "pi-constellation");
 	assert.equal(manifest.private, undefined);
 	assert.equal(manifest.license, "MIT");
 	assert.deepEqual(manifest.contributors, ["stellarjmr"]);
@@ -39,7 +39,8 @@ test("package manifest exposes one installable Pi extension entrypoint", () => {
 	assert.deepEqual(manifest.pi?.extensions, ["./index.ts"]);
 });
 
-test("mode and subagent model mappings match the requested Amp-style harness", () => {
+test("mode and subagent model mappings match the Constellation presets", () => {
+	assert.equal(MODE_STATE_ENTRY, "pi-constellation.mode");
 	assert.deepEqual(MODES, {
 		high: { provider: "openai-codex", model: "gpt-5.6-sol", thinking: "xhigh" },
 		ultra: { provider: "openai-codex", model: "gpt-5.6-sol", thinking: "max" },
@@ -68,7 +69,7 @@ test("mode and subagent model mappings match the requested Amp-style harness", (
 	assert.equal(taskAgentConfig("ultra").thinking, "max");
 });
 
-test("bundled AGENTS.md is documented verbatim and contains the durable harness contract", () => {
+test("bundled AGENTS.md is documented verbatim and contains the durable Constellation contract", () => {
 	const file = readFileSync(new URL("../AGENTS.md", import.meta.url), "utf8").trim();
 	const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
 	assert.equal(BUNDLED_AGENTS, file);
@@ -86,7 +87,7 @@ test("bundled AGENTS.md is a fallback for an empty Pi context and composes once"
 
 	const prompt = appendBundledAgents("EARLIER EXTENSION", true);
 	assert.match(prompt, /^EARLIER EXTENSION\n\n## Bundled AGENTS\.md Fallback/);
-	assert.equal(prompt.match(/# Amp-Style Autonomous Coding Rules/g)?.length, 1);
+	assert.equal(prompt.match(/# Constellation Autonomous Coding Rules/g)?.length, 1);
 	assert.equal(appendBundledAgents(prompt, false), prompt);
 });
 
@@ -104,7 +105,7 @@ test("any Pi-discovered instruction context suppresses the bundled fallback", ()
 
 test("child prompts use the parent instruction snapshot without mixing fallback context", () => {
 	const fallback = buildChildSystemPrompt("CHILD", [], true);
-	assert.equal(fallback.match(/# Amp-Style Autonomous Coding Rules/g)?.length, 1);
+	assert.equal(fallback.match(/# Constellation Autonomous Coding Rules/g)?.length, 1);
 	assert.doesNotMatch(fallback, /<project_context>/);
 
 	const custom = buildChildSystemPrompt(
@@ -160,9 +161,9 @@ test("statusline mode resolution prefers the startup flag, then session state, t
 		{ type: "custom", customType: MODE_STATE_ENTRY, data: { mode: "high" } },
 		{ type: "custom", customType: MODE_STATE_ENTRY, data: { mode: "ultra" } },
 	];
-	assert.equal(resolveHarnessMode(undefined, []), "high");
-	assert.equal(resolveHarnessMode(undefined, entries), "ultra");
-	assert.equal(resolveHarnessMode("high", entries), "high");
+	assert.equal(resolveConstellationMode(undefined, []), "high");
+	assert.equal(resolveConstellationMode(undefined, entries), "ultra");
+	assert.equal(resolveConstellationMode("high", entries), "high");
 });
 
 test("startup mode errors fail closed instead of continuing with an arbitrary model", async () => {
@@ -181,7 +182,7 @@ test("startup mode errors fail closed instead of continuing with an arbitrary mo
 		setThinkingLevel() {},
 		appendEntry() {},
 	};
-	harness(pi as never);
+	constellation(pi as never);
 	assert.ok(restore);
 
 	let shutdowns = 0;
@@ -199,7 +200,7 @@ test("startup mode errors fail closed instead of continuing with an arbitrary mo
 	};
 	await restore({}, baseContext);
 	assert.equal(shutdowns, 1);
-	assert.match(notifications.at(-1) ?? "", /Invalid --harness-mode/);
+	assert.match(notifications.at(-1) ?? "", /Invalid --constellation-mode/);
 
 	flag = "high";
 	await restore({}, {
@@ -213,7 +214,7 @@ test("startup mode errors fail closed instead of continuing with an arbitrary mo
 });
 
 test("Pi child argv is fresh, isolated, and loads only the owned librarian extension", () => {
-	assert.equal(resolvePiBinary({ PI_HARNESS_PI_BINARY: "/fake/pi" }), "/fake/pi");
+	assert.equal(resolvePiBinary({ PI_CONSTELLATION_PI_BINARY: "/fake/pi" }), "/fake/pi");
 	const argv = buildPiArgv(AGENTS.librarian, "/tmp/system.txt", "/private/child-web.ts");
 	assert.deepEqual(argv.slice(0, 4), ["--mode", "json", "-p", "--no-session"]);
 	assert.ok(argv.includes("--no-extensions"));
@@ -312,10 +313,13 @@ test("JSONL collector rejects bounded and incomplete child output", () => {
 });
 
 test("parent and librarian child register only their intended tools", () => {
+	const flags: string[] = [];
 	const parentNames: string[] = [];
 	const executionModes = new Map<string, string | undefined>();
 	const parent = {
-		registerFlag() {},
+		registerFlag(name: string) {
+			flags.push(name);
+		},
 		on() {},
 		registerCommand() {},
 		registerTool(tool: { name: string; executionMode?: string }) {
@@ -323,7 +327,8 @@ test("parent and librarian child register only their intended tools", () => {
 			executionModes.set(tool.name, tool.executionMode);
 		},
 	};
-	harness(parent as never);
+	constellation(parent as never);
+	assert.deepEqual(flags, ["constellation-mode", "no-constellation-agents"]);
 	assert.deepEqual(parentNames, [
 		"oracle",
 		"finder",
@@ -371,7 +376,7 @@ test("input preflight repairs mode drift and applies instructions only as a fall
 		},
 		appendEntry: () => customEntries++,
 	};
-	harness(pi as never);
+	constellation(pi as never);
 	assert.ok(beforeStart);
 	assert.ok(input);
 
@@ -426,7 +431,7 @@ test("input preflight handles failed mode repair before a provider turn", async 
 		setThinkingLevel() {},
 		appendEntry() {},
 	};
-	harness(pi as never);
+	constellation(pi as never);
 	assert.ok(input);
 	const ctx = {
 		model: { provider: "openai-codex", id: "gpt-5.5" },
