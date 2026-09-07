@@ -109,6 +109,11 @@ export async function applyMode(
 	if (persist) pi.appendEntry(MODE_STATE_ENTRY, { mode: name });
 }
 
+function updateModeStatus(ctx: ExtensionContext, mode: ConstellationMode): void {
+	if (ctx.mode !== "tui") return;
+	ctx.ui.setStatus("constellation-mode", ctx.ui.theme.fg("accent", `mode:${mode}`));
+}
+
 interface ChildToolDetails {
 	status: "running" | "completed";
 	agent: string;
@@ -196,7 +201,7 @@ export default function constellation(pi: ExtensionAPI): void {
 		const mode = resolveConstellationMode(flagMode, ctx.sessionManager.getBranch());
 		try {
 			await applyMode(pi, ctx, mode, false);
-			ctx.ui.setStatus("constellation-mode", ctx.ui.theme.fg("accent", `mode:${mode}`));
+			updateModeStatus(ctx, mode);
 		} catch (error) {
 			ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
 			ctx.shutdown();
@@ -244,7 +249,7 @@ export default function constellation(pi: ExtensionAPI): void {
 
 			try {
 				await applyMode(pi, ctx, requested);
-				ctx.ui.setStatus("constellation-mode", ctx.ui.theme.fg("accent", `mode:${requested}`));
+				updateModeStatus(ctx, requested);
 				ctx.ui.notify(`Constellation mode: ${requested}`, "info");
 			} catch (error) {
 				ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");

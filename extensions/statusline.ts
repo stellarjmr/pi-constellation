@@ -167,10 +167,6 @@ function getContextLeftPercent(ctx: ExtensionContext): string {
 	return `${Math.round(left)}%`;
 }
 
-function padToWidth(text: string, width: number): string {
-	return text + " ".repeat(Math.max(0, width - visibleWidth(text)));
-}
-
 function buildBorderLine(left: string, right: string, width: number, theme: Theme, leftCorner: string, rightCorner: string): string {
 	if (width <= 0) return "";
 	if (width === 1) return theme.fg("borderAccent", leftCorner);
@@ -195,22 +191,29 @@ class LimitEditor extends CustomEditor {
 		private readonly pi: ExtensionAPI,
 		private readonly statusState: StatusState,
 	) {
-		super(tui, editorTheme, keybindings);
+		// Let Pi own text, autocomplete, and mouse geometry. Only customize its borders.
+		super(tui, editorTheme, keybindings, { paddingX: 1, embedWorkingStatus: false });
 	}
 
-	override render(width: number): string[] {
-		const innerWidth = Math.max(1, width - 2);
-		const rendered = super.render(innerWidth);
-		if (rendered.length < 2) return rendered;
-
+	protected override renderTopBorder(width: number, hiddenLineCount: number): string {
 		const mode = resolveConstellationMode(this.pi.getFlag("constellation-mode"), this.ctx.sessionManager.getBranch());
 		const borderJoin = this.uiTheme.fg("borderAccent", " ─ ");
 		const borderEdgeLeft = this.uiTheme.fg("borderAccent", "─ ");
 		const borderEdgeRight = this.uiTheme.fg("borderAccent", " ──");
-		const topLeft = `${borderEdgeLeft}${this.uiTheme.fg("borderAccent", " ")}`;
+		const scrollHint = hiddenLineCount > 0 ? `↑ ${hiddenLineCount} more ` : "";
+		const topLeft = `${borderEdgeLeft}${this.uiTheme.fg("borderAccent", ` ${scrollHint}`)}`;
 		const topRight = ` ${getContextLeftPercent(this.ctx)}${borderJoin}${colorForConstellationMode(this.uiTheme, mode)}${borderEdgeRight}`;
+		return buildBorderLine(topLeft, topRight, width, this.uiTheme, "╭", "╮");
+	}
+
+	protected override renderBottomBorder(width: number, hiddenLineCount: number): string {
+		const borderJoin = this.uiTheme.fg("borderAccent", " ─ ");
+		const borderEdgeLeft = this.uiTheme.fg("borderAccent", "─ ");
+		const borderEdgeRight = this.uiTheme.fg("borderAccent", " ──");
+		const scrollHint = hiddenLineCount > 0 ? this.uiTheme.fg("borderAccent", `↓ ${hiddenLineCount} more `) : "";
 		const bottomLeft =
 			borderEdgeLeft +
+			scrollHint +
 			this.uiTheme.fg("warning", formatLimitCompact("5h", this.statusState.codeLimits.session, this.statusState.codeLimits)) +
 			borderJoin +
 			this.uiTheme.fg("mdListBullet", formatLimitCompact("W", this.statusState.codeLimits.weekly, this.statusState.codeLimits)) +
@@ -221,17 +224,7 @@ class LimitEditor extends CustomEditor {
 			borderJoin +
 			(this.statusState.branch ? this.uiTheme.fg("mdLink", this.statusState.branch) : this.uiTheme.fg("dim", "no git")) +
 			borderEdgeRight;
-
-		const top = buildBorderLine(topLeft, topRight, width, this.uiTheme, "╭", "╮");
-		const bottom = buildBorderLine(bottomLeft, bottomRight, width, this.uiTheme, "╰", "╯");
-		const bodyLines = rendered.slice(1, -1);
-		while (bodyLines.length < 2) bodyLines.push("");
-		const body = bodyLines.map((line) => {
-			const content = padToWidth(truncateToWidth(line, innerWidth, ""), innerWidth);
-			return `${this.uiTheme.fg("borderAccent", "│")}${content}${this.uiTheme.fg("borderAccent", "│")}`;
-		});
-
-		return [top, ...body, bottom];
+		return buildBorderLine(bottomLeft, bottomRight, width, this.uiTheme, "╰", "╯");
 	}
 }
 

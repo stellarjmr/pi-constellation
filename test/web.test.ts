@@ -348,17 +348,48 @@ test("Codex SSE terminal failures override previously collected search items", a
 	];
 
 	for (const testCase of cases) {
-		await assert.rejects(
-			() =>
-				webSearch(ctx as never, "x", ["x"], 3, {
-					fetch: async () =>
-						new Response(`${partial}data: ${JSON.stringify(testCase.event)}\n\n`, {
-							headers: { "content-type": "text/event-stream" },
-						}),
-				}),
-			testCase.expected,
-		);
+		for (const ending of ["\n\n", ""]) {
+			await assert.rejects(
+				() =>
+					webSearch(ctx as never, "x", ["x"], 3, {
+						fetch: async () =>
+							new Response(`${partial}data: ${JSON.stringify(testCase.event)}${ending}`, {
+								headers: { "content-type": "text/event-stream" },
+							}),
+					}),
+				testCase.expected,
+			);
+		}
 	}
+});
+
+test("Codex SSE accepts terminal events without a trailing blank line", async () => {
+	for (const newline of ["\n", "\r\n", "\r"]) {
+		for (const type of ["response.completed", "response.done"]) {
+			const item = { type: "message", content: [{ text: "已完成", annotations: [] }] };
+			const payload = [
+				`data: ${JSON.stringify({ type: "response.output_item.done", item })}`,
+				`data: ${JSON.stringify({ type, response: { status: "completed", output: [] } })}`,
+			].join(newline + newline);
+			const result = await webSearch(codexContext(codexToken()) as never, "x", ["x"], 3, {
+				fetch: async () => new Response(payload, { headers: { "content-type": "text/event-stream" } }),
+			});
+			assert.deepEqual(result, { answer: "已完成", sources: [] });
+		}
+	}
+});
+
+test("Codex SSE rejects partial results without a terminal response", async () => {
+	const payload = `data: ${JSON.stringify({
+		type: "response.output_item.done",
+		item: { type: "message", content: [{ text: "partial answer" }] },
+	})}`;
+	await assert.rejects(
+		webSearch(codexContext(codexToken()) as never, "x", ["x"], 3, {
+			fetch: async () => new Response(payload, { headers: { "content-type": "text/event-stream" } }),
+		}),
+		/stream ended before a terminal response event/,
+	);
 });
 
 test("malformed Codex SSE data is rejected", async () => {

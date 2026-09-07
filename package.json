@@ -1,6 +1,6 @@
 {
   "name": "pi-constellation",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A high-performance, two-mode multi-agent harness for Pi.",
   "type": "module",
   "license": "MIT",
@@ -43,13 +43,13 @@
     "turndown": "^7.2.0"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-tui": "*",
+    "@earendil-works/pi-coding-agent": ">=0.85.1",
+    "@earendil-works/pi-tui": ">=0.85.1",
     "typebox": "*"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "0.84.1",
-    "@earendil-works/pi-tui": "0.84.1",
+    "@earendil-works/pi-coding-agent": "0.85.1",
+    "@earendil-works/pi-tui": "0.85.1",
     "@types/node": "^24.0.0",
     "@types/turndown": "^5.0.5",
     "tsx": "^4.20.0",

@@ -6,7 +6,7 @@ Constellation is an independent implementation built with Pi's public Extension 
 
 ## Requirements
 
-- Pi 0.84.1
+- Pi 0.85.1 or newer (tested with 0.85.1)
 - Node.js 22.19 or newer
 - An authenticated `openai-codex` provider
 
@@ -54,7 +54,7 @@ On every agent turn, the extension inspects the context files that Pi already di
 2. If Pi loaded no instruction file, the extension appends the bundled `AGENTS.md` to the main agent's system prompt and to isolated subagent prompts.
 3. After `/reload`, a session switch, or a workspace change, Pi rebuilds its context and the extension evaluates the rule again on the next turn.
 
-Pi 0.84.1 recognizes the first readable file in each applicable directory in this order: `AGENTS.override.md`, `AGENTS.md`, `AGENTS.MD`, `CLAUDE.md`, then `CLAUDE.MD`. It loads the global Pi directory first, followed by project ancestors from outermost to innermost. Any resulting context file suppresses the package fallback; the extension does not reimplement or weaken Pi's native precedence rules.
+Pi 0.85.1 recognizes the first readable file in each applicable directory in this order: `AGENTS.override.md`, `AGENTS.md`, `AGENTS.MD`, `CLAUDE.md`, then `CLAUDE.MD`. It loads the global Pi directory first, followed by project ancestors from outermost to innermost. Any resulting context file suppresses the package fallback; the extension does not reimplement or weaken Pi's native precedence rules.
 
 An installed package's own `AGENTS.md` is not part of Pi's automatic project discovery. The extension reads its packaged copy through `import.meta.url`, and `package.json` includes the file in published archives. Running Pi from this repository is also safe: Pi discovers the repository file natively, so the extension does not inject a duplicate.
 
@@ -129,6 +129,8 @@ Read-only specialists cannot execute shell commands or edit files. `task` is the
 
 The TUI editor and statusline display `high` or `ultra`, never `xhigh` or `max`. They also show context remaining, project and branch information, and optional Codex usage limits when the external `codelim` command is available. Missing `codelim` does not prevent the extension from loading.
 
+The status labels use Pi's native editor border hooks. Text layout, scrolling, mouse positioning, and autocomplete remain managed by Pi, with all suggestions displayed below the bottom border. The working indicator is displayed separately from the custom borders.
+
 The statusline is disabled automatically in JSON, print, and RPC modes.
 
 ## Web authentication and security
@@ -149,7 +151,7 @@ npm run check
 npm run pack:check
 ```
 
-The test suite covers mode enforcement, tool registration, child isolation, cancellation, temporary prompt cleanup, lifecycle progress, SSRF protections, response bounds, Codex authentication, API-key fallback, and credential redaction.
+The test suite covers mode enforcement, tool registration, child isolation, cancellation, temporary prompt cleanup, lifecycle progress, SSRF protections, response bounds, Codex authentication, API-key fallback, and credential redaction. It also loads the package through Pi's real SDK in an isolated temporary directory without making model requests, exercises editor mouse and autocomplete behavior, and checks SSE terminal events without trailing blank lines.
 
 ## License
 
