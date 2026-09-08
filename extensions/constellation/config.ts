@@ -1,6 +1,6 @@
 export const MODES = {
-	high: { provider: "openai-codex", model: "gpt-5.6-sol", thinking: "xhigh" },
-	ultra: { provider: "openai-codex", model: "gpt-5.6-sol", thinking: "max" },
+	high: { provider: "openai-codex", model: "gpt-6-astra", thinking: "xhigh" },
+	ultra: { provider: "openai-codex", model: "gpt-6-astra", thinking: "max" },
 } as const;
 export type ConstellationMode = keyof typeof MODES;
 
@@ -35,7 +35,7 @@ export function taskAgentConfig(mode: ConstellationMode) {
 export const AGENTS = {
 	oracle: {
 		provider: "openai-codex",
-		model: "gpt-5.6-sol",
+		model: "gpt-6-astra",
 		thinking: "high",
 		tools: "read,grep,find,ls",
 		timeoutMs: 600_000,
@@ -56,7 +56,7 @@ export const AGENTS = {
 	},
 	librarian: {
 		provider: "openai-codex",
-		model: "gpt-5.6-sol",
+		model: "gpt-6-astra",
 		thinking: "high",
 		tools: "web_search,read_web_page",
 		timeoutMs: 600_000,

@@ -61,6 +61,7 @@ test("Pi SDK loads the package and enforces modes with its real extension runtim
 		shutdownHandler: () => shutdowns++,
 	});
 	assert.equal(session.thinkingLevel, "xhigh");
+	assert.equal(session.model?.id, "gpt-6-astra");
 	assert.deepEqual(session.extensionRunner.getAllRegisteredTools().map(({ definition }) => definition.name), [
 		"oracle", "finder", "reviewer", "librarian", "task", "web_search", "read_web_page",
 	]);

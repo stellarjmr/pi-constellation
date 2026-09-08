@@ -100,8 +100,8 @@ The complete bundled fallback is:
 
 | Mode | Main agent | Oracle |
 |---|---|---|
-| `high` | `openai-codex/gpt-5.6-sol:xhigh` | `openai-codex/gpt-5.6-sol:high` |
-| `ultra` | `openai-codex/gpt-5.6-sol:max` | `openai-codex/gpt-5.6-sol:high` |
+| `high` | `openai-codex/gpt-6-astra:xhigh` | `openai-codex/gpt-6-astra:high` |
+| `ultra` | `openai-codex/gpt-6-astra:max` | `openai-codex/gpt-6-astra:high` |
 
 Select a mode with `/mode`, `/mode high`, `/mode ultra`, or `--constellation-mode high|ultra`. The default is `high`. The selection is stored in the Pi session and restored when the session or branch changes.
 
@@ -111,10 +111,10 @@ Constellation checks the selected preset before provider validation and again be
 
 | Tool | Model | Access | Purpose |
 |---|---|---|---|
-| `oracle` | Sol `high` | Read-only | Difficult reasoning, debugging, architecture, and high-impact review |
+| `oracle` | Astra `high` | Read-only | Difficult reasoning, debugging, architecture, and high-impact review |
 | `finder` | Terra `medium` | Read-only | Conceptual and multi-module local code discovery |
 | `reviewer` | GPT-5.5 `high` | Read-only | Independent intent-first code and plan review |
-| `librarian` | Sol `high` | Web-only | External repositories, dependency internals, and primary-source research |
+| `librarian` | Astra `high` | Web-only | External repositories, dependency internals, and primary-source research |
 | `task` | Current `high` or `ultra` mode | Read/write | Foreground implementation after the path is understood |
 | `web_search` | Terra | Web-only | Current public web search with cited sources |
 | `read_web_page` | None | Web-only | SSRF-safe bounded page retrieval and HTML-to-Markdown conversion |
@@ -129,7 +129,7 @@ Read-only specialists cannot execute shell commands or edit files. `task` is the
 
 The TUI editor and statusline display `high` or `ultra`, never `xhigh` or `max`. They also show context remaining, project and branch information, and optional Codex usage limits when the external `codelim` command is available. Missing `codelim` does not prevent the extension from loading.
 
-The status labels use Pi's native editor border hooks. Text layout, scrolling, mouse positioning, and autocomplete remain managed by Pi, with all suggestions displayed below the bottom border. The working indicator is displayed separately from the custom borders.
+The editor has a full-width closed frame with at least two input rows. Pi handles text layout and scrolling inside the frame; Constellation adjusts mouse coordinates for the side borders and empty rows, with all autocomplete suggestions displayed below the bottom border. The working indicator is displayed separately from the custom borders.
 
 The statusline is disabled automatically in JSON, print, and RPC modes.
 

@@ -42,8 +42,8 @@ test("package manifest exposes one installable Pi extension entrypoint", () => {
 test("mode and subagent model mappings match the Constellation presets", () => {
 	assert.equal(MODE_STATE_ENTRY, "pi-constellation.mode");
 	assert.deepEqual(MODES, {
-		high: { provider: "openai-codex", model: "gpt-5.6-sol", thinking: "xhigh" },
-		ultra: { provider: "openai-codex", model: "gpt-5.6-sol", thinking: "max" },
+		high: { provider: "openai-codex", model: "gpt-6-astra", thinking: "xhigh" },
+		ultra: { provider: "openai-codex", model: "gpt-6-astra", thinking: "max" },
 	});
 	assert.deepEqual(
 		Object.fromEntries(
@@ -53,15 +53,15 @@ test("mode and subagent model mappings match the Constellation presets", () => {
 			]),
 		),
 		{
-			oracle: "openai-codex/gpt-5.6-sol:high",
+			oracle: "openai-codex/gpt-6-astra:high",
 			finder: "openai-codex/gpt-5.6-terra:medium",
 			reviewer: "openai-codex/gpt-5.5:high",
-			librarian: "openai-codex/gpt-5.6-sol:high",
+			librarian: "openai-codex/gpt-6-astra:high",
 		},
 	);
 	assert.deepEqual(taskAgentConfig("high"), {
 		provider: "openai-codex",
-		model: "gpt-5.6-sol",
+		model: "gpt-6-astra",
 		thinking: "xhigh",
 		tools: "read,bash,edit,write,grep,find,ls",
 		timeoutMs: 900_000,
@@ -125,7 +125,7 @@ test("child prompts use the parent instruction snapshot without mixing fallback 
 });
 
 test("restoring an already-correct mode does not append native session transitions", async () => {
-	const model = { provider: "openai-codex", id: "gpt-5.6-sol" };
+	const model = { provider: "openai-codex", id: "gpt-6-astra" };
 	let modelChanges = 0;
 	const thinkingChanges: string[] = [];
 	let customEntries = 0;
@@ -189,7 +189,7 @@ test("startup mode errors fail closed instead of continuing with an arbitrary mo
 	const notifications: string[] = [];
 	const baseContext = {
 		sessionManager: { getBranch: () => [] },
-		model: { provider: "openai-codex", id: "gpt-5.6-sol" },
+		model: { provider: "openai-codex", id: "gpt-6-astra" },
 		thinkingLevel: "xhigh",
 		ui: {
 			notify: (message: string) => notifications.push(message),
@@ -210,7 +210,7 @@ test("startup mode errors fail closed instead of continuing with an arbitrary mo
 		},
 	});
 	assert.equal(shutdowns, 2);
-	assert.match(notifications.at(-1) ?? "", /model openai-codex\/gpt-5\.6-sol is unavailable/);
+	assert.match(notifications.at(-1) ?? "", /model openai-codex\/gpt-6-astra is unavailable/);
 });
 
 test("Pi child argv is fresh, isolated, and loads only the owned librarian extension", () => {
@@ -230,7 +230,7 @@ test("Pi child argv is fresh, isolated, and loads only the owned librarian exten
 	const taskArgv = buildPiArgv(taskAgentConfig("ultra"), "/tmp/system.txt");
 	assert.deepEqual(taskArgv.slice(taskArgv.indexOf("--model"), taskArgv.indexOf("--model") + 2), [
 		"--model",
-		"openai-codex/gpt-5.6-sol",
+		"openai-codex/gpt-6-astra",
 	]);
 	assert.deepEqual(taskArgv.slice(taskArgv.indexOf("--thinking"), taskArgv.indexOf("--thinking") + 2), [
 		"--thinking",
@@ -354,7 +354,7 @@ test("input preflight repairs mode drift and applies instructions only as a fall
 	let modelChanges = 0;
 	const thinkingChanges: string[] = [];
 	let customEntries = 0;
-	const targetModel = { provider: "openai-codex", id: "gpt-5.6-sol" };
+	const targetModel = { provider: "openai-codex", id: "gpt-6-astra" };
 	let ctx: any;
 	const pi = {
 		registerFlag() {},
@@ -441,9 +441,9 @@ test("input preflight handles failed mode repair before a provider turn", async 
 		ui: { notify: (message: string) => notifications.push(message) },
 	};
 	assert.deepEqual(await input({ source: "interactive" }, ctx), { action: "handled" });
-	assert.match(notifications.at(-1) ?? "", /model openai-codex\/gpt-5\.6-sol is unavailable/);
+	assert.match(notifications.at(-1) ?? "", /model openai-codex\/gpt-6-astra is unavailable/);
 
-	availableModel = { provider: "openai-codex", id: "gpt-5.6-sol" };
+	availableModel = { provider: "openai-codex", id: "gpt-6-astra" };
 	switchAllowed = false;
 	assert.deepEqual(await input({ source: "interactive" }, ctx), { action: "handled" });
 	assert.match(notifications.at(-1) ?? "", /authentication unavailable/);

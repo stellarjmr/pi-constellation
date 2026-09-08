@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { CustomEditor, type ExtensionAPI, type ExtensionContext, InteractiveMode, type KeybindingsManager, type Theme } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, visibleWidth, type EditorTheme, type TUI } from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth, type EditorTheme, type TUI, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import { resolveConstellationMode, type ConstellationMode } from "./constellation/config.js";
 
 // Suppress the framework's built-in "Thinking level: xxx" status message,
@@ -174,14 +174,18 @@ function buildBorderLine(left: string, right: string, width: number, theme: Them
 	const minMiddle = Math.max(0, width - 2);
 	const gap = Math.max(1, minMiddle - visibleWidth(left) - visibleWidth(right));
 	const middle = `${left}${theme.fg("borderAccent", "─".repeat(gap))}${right}`;
-	return truncateToWidth(
-		`${theme.fg("borderAccent", leftCorner)}${middle}${theme.fg("borderAccent", rightCorner)}`,
-		width,
-		"",
-	);
+	return `${theme.fg("borderAccent", leftCorner)}${truncateToWidth(middle, minMiddle, "", true)}${theme.fg("borderAccent", rightCorner)}`;
 }
 
+// Internal zero-width marker: removed before any rows reach the terminal.
+const EDITOR_BOTTOM_MARKER = "\x1b_constellation-bottom-border\x1b\\";
+
 class LimitEditor extends CustomEditor {
+	private frameWidth = 0;
+	private bottomBorder = "";
+	private nativeBottomRow = 0;
+	private fillerRows = 0;
+
 	constructor(
 		tui: TUI,
 		editorTheme: EditorTheme,
@@ -191,11 +195,47 @@ class LimitEditor extends CustomEditor {
 		private readonly pi: ExtensionAPI,
 		private readonly statusState: StatusState,
 	) {
-		// Let Pi own text, autocomplete, and mouse geometry. Only customize its borders.
-		super(tui, editorTheme, keybindings, { paddingX: 1, embedWorkingStatus: false });
+		super(tui, editorTheme, keybindings, { embedWorkingStatus: false });
 	}
 
-	protected override renderTopBorder(width: number, hiddenLineCount: number): string {
+	override render(width: number): string[] {
+		this.frameWidth = width;
+		this.nativeBottomRow = 0;
+		this.fillerRows = 0;
+		if (width <= 0) return [];
+		const innerWidth = Math.max(0, width - 2);
+		const rendered = super.render(this.nativeWidth(width));
+		// Pi appends autocomplete after its bottom border. Never assume the last row is a border.
+		this.nativeBottomRow = rendered.indexOf(EDITOR_BOTTOM_MARKER);
+		if (this.nativeBottomRow < 1) throw new Error("Pi editor did not render its bottom border");
+		const body = rendered.slice(1, this.nativeBottomRow);
+		this.fillerRows = Math.max(0, 2 - body.length);
+		body.push(...Array<string>(this.fillerRows).fill(""));
+		const side = this.uiTheme.fg("borderAccent", "│");
+		return [
+			rendered[0]!,
+			...body.map((line) => width === 1 ? side : `${side}${truncateToWidth(line, innerWidth, "", true)}${side}`),
+			this.bottomBorder,
+			...rendered.slice(this.nativeBottomRow + 1).map((line) => truncateToWidth(` ${line}`, width, "", true)),
+		];
+	}
+
+	override handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
+		return super.handleMouse({
+			...event,
+			x: event.x - 1,
+			y: event.y >= this.nativeBottomRow ? Math.max(this.nativeBottomRow, event.y - this.fillerRows) : event.y,
+			width: this.nativeWidth(event.width),
+			height: Math.max(0, event.height - this.fillerRows),
+		});
+	}
+
+	private nativeWidth(width: number): number {
+		// Pi needs space for a wide grapheme and its cursor. Clip only when the frame is narrower.
+		return Math.max(width - 2, 3 + 2 * this.getPaddingX());
+	}
+
+	protected override renderTopBorder(_width: number, hiddenLineCount: number): string {
 		const mode = resolveConstellationMode(this.pi.getFlag("constellation-mode"), this.ctx.sessionManager.getBranch());
 		const borderJoin = this.uiTheme.fg("borderAccent", " ─ ");
 		const borderEdgeLeft = this.uiTheme.fg("borderAccent", "─ ");
@@ -203,10 +243,10 @@ class LimitEditor extends CustomEditor {
 		const scrollHint = hiddenLineCount > 0 ? `↑ ${hiddenLineCount} more ` : "";
 		const topLeft = `${borderEdgeLeft}${this.uiTheme.fg("borderAccent", ` ${scrollHint}`)}`;
 		const topRight = ` ${getContextLeftPercent(this.ctx)}${borderJoin}${colorForConstellationMode(this.uiTheme, mode)}${borderEdgeRight}`;
-		return buildBorderLine(topLeft, topRight, width, this.uiTheme, "╭", "╮");
+		return buildBorderLine(topLeft, topRight, this.frameWidth, this.uiTheme, "╭", "╮");
 	}
 
-	protected override renderBottomBorder(width: number, hiddenLineCount: number): string {
+	protected override renderBottomBorder(_width: number, hiddenLineCount: number): string {
 		const borderJoin = this.uiTheme.fg("borderAccent", " ─ ");
 		const borderEdgeLeft = this.uiTheme.fg("borderAccent", "─ ");
 		const borderEdgeRight = this.uiTheme.fg("borderAccent", " ──");
@@ -224,7 +264,8 @@ class LimitEditor extends CustomEditor {
 			borderJoin +
 			(this.statusState.branch ? this.uiTheme.fg("mdLink", this.statusState.branch) : this.uiTheme.fg("dim", "no git")) +
 			borderEdgeRight;
-		return buildBorderLine(bottomLeft, bottomRight, width, this.uiTheme, "╰", "╯");
+		this.bottomBorder = buildBorderLine(bottomLeft, bottomRight, this.frameWidth, this.uiTheme, "╰", "╯");
+		return EDITOR_BOTTOM_MARKER;
 	}
 }
 
