@@ -53,7 +53,7 @@ test("mode and subagent model mappings match the Constellation presets", () => {
 			]),
 		),
 		{
-			oracle: "openai-codex/gpt-6-astra:high",
+			oracle: "openai-codex/gpt-6-astra:xhigh",
 			finder: "openai-codex/gpt-5.6-terra:medium",
 			reviewer: "openai-codex/gpt-5.5:high",
 			librarian: "openai-codex/gpt-6-astra:high",
@@ -225,7 +225,9 @@ test("Pi child argv is fresh, isolated, and loads only the owned librarian exten
 		["--append-system-prompt", "/tmp/system.txt"],
 	);
 	assert.deepEqual(argv.slice(-2), ["-e", "/private/child-web.ts"]);
-	assert.equal(buildPiArgv(AGENTS.oracle, "/tmp/system.txt").includes("-e"), false);
+	const oracleArgv = buildPiArgv(AGENTS.oracle, "/tmp/system.txt");
+	assert.equal(oracleArgv.includes("-e"), false);
+	assert.equal(oracleArgv[oracleArgv.indexOf("--thinking") + 1], "xhigh");
 
 	const taskArgv = buildPiArgv(taskAgentConfig("ultra"), "/tmp/system.txt");
 	assert.deepEqual(taskArgv.slice(taskArgv.indexOf("--model"), taskArgv.indexOf("--model") + 2), [

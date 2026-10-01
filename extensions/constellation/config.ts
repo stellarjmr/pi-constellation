@@ -36,7 +36,7 @@ export const AGENTS = {
 	oracle: {
 		provider: "openai-codex",
 		model: "gpt-6-astra",
-		thinking: "high",
+		thinking: "xhigh",
 		tools: "read,grep,find,ls",
 		timeoutMs: 600_000,
 	},

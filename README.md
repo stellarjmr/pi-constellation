@@ -100,8 +100,8 @@ The complete bundled fallback is:
 
 | Mode | Main agent | Oracle |
 |---|---|---|
-| `high` | `openai-codex/gpt-6-astra:xhigh` | `openai-codex/gpt-6-astra:high` |
-| `ultra` | `openai-codex/gpt-6-astra:max` | `openai-codex/gpt-6-astra:high` |
+| `high` | `openai-codex/gpt-6-astra:xhigh` | `openai-codex/gpt-6-astra:xhigh` |
+| `ultra` | `openai-codex/gpt-6-astra:max` | `openai-codex/gpt-6-astra:xhigh` |
 
 Select a mode with `/mode`, `/mode high`, `/mode ultra`, or `--constellation-mode high|ultra`. The default is `high`. The selection is stored in the Pi session and restored when the session or branch changes.
 
@@ -111,7 +111,7 @@ Constellation checks the selected preset before provider validation and again be
 
 | Tool | Model | Access | Purpose |
 |---|---|---|---|
-| `oracle` | Astra `high` | Read-only | Difficult reasoning, debugging, architecture, and high-impact review |
+| `oracle` | Astra `xhigh` | Read-only | Difficult reasoning, debugging, architecture, and high-impact review |
 | `finder` | Terra `medium` | Read-only | Conceptual and multi-module local code discovery |
 | `reviewer` | GPT-5.5 `high` | Read-only | Independent intent-first code and plan review |
 | `librarian` | Astra `high` | Web-only | External repositories, dependency internals, and primary-source research |
